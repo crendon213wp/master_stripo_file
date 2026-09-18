@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <title>Stripo Plugin Example</title>
+        <title>Master Stripo File</title>
         <style>
             * {
                 margin: 0;
@@ -194,8 +194,14 @@
                 </button>
             </div>
             <div>
+                <select id="projectSelect" class="control-button">
+                    <option value="">Select project</option>
+                </select>
+                <button id="loadProjectButton" class="control-button">
+                    Open
+                </button>
                 <button id="saveButton" class="control-button">
-                    Manual Save
+                    Save
                 </button>
                 <button id="getTemplateButton" class="control-button">
                     Download
@@ -511,22 +517,129 @@
 
         <!--External code to demonstrate Stripo API calls in action -->
         <script>
-            //the manual save() function example
-            document
-                .querySelector("#saveButton")
-                .addEventListener("click", function () {
+            let currentProjectName = new URLSearchParams(
+                window.location.search,
+            ).get("project");
+
+            function getCurrentTemplateData() {
+                return new Promise((resolve, reject) => {
+                    window.StripoEditorApi.actionsApi.getTemplateData(
+                        function (templateData) {
+                            if (!templateData?.html) {
+                                reject(new Error("Stripo returned no template data."));
+                                return;
+                            }
+
+                            resolve({
+                                html: templateData.html,
+                                css: templateData.css || "",
+                            });
+                        },
+                    );
+                });
+            }
+
+            async function saveProjectTemplate(projectName) {
+                if (!projectName) {
+                    throw new Error("Create or select a project before saving.");
+                }
+
+                await new Promise((resolve, reject) => {
                     window.StripoEditorApi.actionsApi.save(function (error) {
                         if (error) {
-                            notifications.error(
-                                "Operation is not successful. Something went wrong!",
-                            );
-                        } else {
-                            notifications.success(
-                                "The operation is successful. All changed were saved!",
-                            );
+                            reject(error);
+                            return;
                         }
+
+                        resolve();
                     });
                 });
+
+                const template = await getCurrentTemplateData();
+                const response = await fetch(
+                    `/api/projects/${encodeURIComponent(projectName)}/template`,
+                    {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(template),
+                    },
+                );
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Project save failed.");
+                }
+            }
+
+            async function loadProjectList() {
+                const response = await fetch("/api/projects");
+                const projects = await response.json();
+                const projectSelect = document.querySelector("#projectSelect");
+
+                projectSelect.replaceChildren(
+                    new Option("Select project", ""),
+                    ...projects.map(
+                        ({ projectName }) => new Option(projectName, projectName),
+                    ),
+                );
+                projectSelect.value = currentProjectName || "";
+            }
+
+            document
+                .querySelector("#saveButton")
+                .addEventListener("click", async function () {
+                    try {
+                        await saveProjectTemplate(currentProjectName);
+                        notifications.success("Project saved successfully.");
+                    } catch (error) {
+                        console.error(error);
+                        notifications.error(error.message || "Project save failed.");
+                    }
+                });
+
+            document
+                .querySelector("#loadProjectButton")
+                .addEventListener("click", function () {
+                    const projectName = document.querySelector(
+                        "#projectSelect",
+                    ).value;
+
+                    if (!projectName) {
+                        notifications.error("Select a project to open.");
+                        return;
+                    }
+
+                    window.location.search = `?project=${encodeURIComponent(projectName)}`;
+                });
+
+            document
+                .querySelector("#newProjectButton")
+                .addEventListener("click", async function () {
+                    try {
+                        const response = await fetch("/api/projects", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({}),
+                        });
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(data.error || "Project creation failed.");
+                        }
+
+                        await saveProjectTemplate(data.projectName);
+                        window.location.search = `?project=${encodeURIComponent(data.projectName)}`;
+                    } catch (error) {
+                        console.error(error);
+                        notifications.error(error.message || "Project creation failed.");
+                    }
+                });
+
+            loadProjectList().catch((error) => {
+                console.error(error);
+                notifications.error("Could not load saved projects.");
+            });
+
             //the getTemplateData() function example
             document
                 .querySelector("#getTemplateButton")
@@ -631,40 +744,6 @@
                     });
                 });
 
-            document
-                .querySelector("#newProjectButton")
-                .addEventListener("click", async function () {
-                    try {
-                        const response = await fetch("/api/projects", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({}),
-                        });
-                        const responseText = await response.text();
-                        let data;
-
-                        try {
-                            data = JSON.parse(responseText);
-                        } catch {
-                            throw new Error(
-                                `Project server returned an unexpected response (${response.status}). Restart the server with npm start and open http://localhost:3000.`,
-                            );
-                        }
-
-                        if (!response.ok) {
-                            throw new Error(
-                                data.error || "Project creation failed.",
-                            );
-                        }
-
-                        notifications.success(
-                            `New project created: ${data.projectName}`,
-                        );
-                    } catch (error) {
-                        console.error(error);
-                        notifications.error(error.message);
-                    }
-                });
         </script>
 
         <script>
@@ -753,8 +832,28 @@
                 document.body.appendChild(script);
             }
 
-            loadDemoTemplate(function (template) {
-                initPlugin(addColorModeSupport(template));
+            async function loadInitialTemplate() {
+                if (currentProjectName) {
+                    try {
+                        const response = await fetch(
+                            `/api/projects/${encodeURIComponent(currentProjectName)}/template`,
+                        );
+
+                        if (response.ok) {
+                            return response.json();
+                        }
+                    } catch (error) {
+                        console.error("Saved project could not be loaded:", error);
+                    }
+                }
+
+                return new Promise((resolve) => loadDemoTemplate(resolve));
+            }
+
+            loadInitialTemplate().then((template) => {
+                initPlugin(
+                    currentProjectName ? template : addColorModeSupport(template),
+                );
             });
         </script>
 

@@ -6,6 +6,7 @@ It does two useful things:
 
 - Starts the Stripo editor in your browser.
 - Creates a new project beside the `Master File` directory.
+- Saves project HTML and CSS so you can reopen the work later.
 
 The app needs Node.js, Stripo credentials, and a reliable internet connection. The internet connection matters because the editor and authentication service are hosted by Stripo.
 
@@ -117,6 +118,15 @@ New projects are created in a sibling directory beside the cloned repository:
 ```
 
 They are not created inside `master_stripo_file`.
+
+## Save and reopen a project
+
+1. Click **New Project** to create a project and save the current design.
+2. Continue editing in Stripo.
+3. Click **Save** to write the current HTML and CSS to that project.
+4. Use the project selector and click **Open** to reopen a saved project later.
+
+Project content is stored in a `template.json` file inside the project directory. This is local filesystem storage, not a database or browser cache. Keep the project directory backed up if the work matters.
 
 ## Troubleshooting
 

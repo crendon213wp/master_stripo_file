@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { execFile } from "node:child_process";
-import { mkdir, copyFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,13 +19,63 @@ if (!process.env.STRIPO_PLUGIN_ID || !process.env.STRIPO_SECRET_KEY) {
 }
 
 app.use(express.static(directory));
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
+
+function isValidProjectName(projectName) {
+    return /^[a-zA-Z0-9_-]+$/.test(projectName);
+}
+
+function getProjectDirectory(projectName) {
+    return path.join(projectsDirectory, projectName);
+}
+
+async function readProjectTemplate(projectName) {
+    const templatePath = path.join(
+        getProjectDirectory(projectName),
+        "template.json",
+    );
+
+    return JSON.parse(await readFile(templatePath, "utf8"));
+}
+
+app.get("/api/projects", async (request, response) => {
+    try {
+        const entries = await readdir(projectsDirectory, { withFileTypes: true });
+        const projects = [];
+
+        for (const entry of entries) {
+            if (!entry.isDirectory() || !isValidProjectName(entry.name)) {
+                continue;
+            }
+
+            try {
+                await readProjectTemplate(entry.name);
+                projects.push({ projectName: entry.name });
+            } catch (error) {
+                if (error.code !== "ENOENT") {
+                    console.error(`Could not read project ${entry.name}:`, error);
+                }
+            }
+        }
+
+        response.json(projects.sort((first, second) =>
+            first.projectName.localeCompare(second.projectName),
+        ));
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            return response.json([]);
+        }
+
+        console.error("Project listing failed:", error);
+        response.status(500).json({ error: "Project listing failed." });
+    }
+});
 
 app.post("/api/projects", async (request, response) => {
     const requestedName = request.body?.name;
     const projectName = requestedName || createDefaultProjectName();
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(projectName)) {
+    if (!isValidProjectName(projectName)) {
         return response.status(400).json({
             error: "Project name may contain only letters, numbers, hyphens, and underscores.",
         });
@@ -61,6 +111,62 @@ app.post("/api/projects", async (request, response) => {
 
         console.error("Project creation failed:", error);
         response.status(500).json({ error: "Project creation failed." });
+    }
+});
+
+app.get("/api/projects/:projectName/template", async (request, response) => {
+    const { projectName } = request.params;
+
+    if (!isValidProjectName(projectName)) {
+        return response.status(400).json({ error: "Invalid project name." });
+    }
+
+    try {
+        response.json(await readProjectTemplate(projectName));
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            return response.status(404).json({ error: "Project template not found." });
+        }
+
+        console.error("Project template loading failed:", error);
+        response.status(500).json({ error: "Project template loading failed." });
+    }
+});
+
+app.put("/api/projects/:projectName/template", async (request, response) => {
+    const { projectName } = request.params;
+    const { html, css } = request.body || {};
+
+    if (!isValidProjectName(projectName)) {
+        return response.status(400).json({ error: "Invalid project name." });
+    }
+
+    if (typeof html !== "string" || typeof css !== "string") {
+        return response.status(400).json({
+            error: "Template HTML and CSS are required.",
+        });
+    }
+
+    try {
+        const projectDirectory = getProjectDirectory(projectName);
+        await readFile(path.join(projectDirectory, "package.json"), "utf8");
+        await writeFile(
+            path.join(projectDirectory, "template.json"),
+            JSON.stringify(
+                { html, css, updatedAt: new Date().toISOString() },
+                null,
+                2,
+            ),
+            "utf8",
+        );
+        response.json({ projectName, saved: true });
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            return response.status(404).json({ error: "Project not found." });
+        }
+
+        console.error("Project template save failed:", error);
+        response.status(500).json({ error: "Project template save failed." });
     }
 });
 
