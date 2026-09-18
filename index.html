@@ -227,7 +227,7 @@
             <p
                 style="
                     margin: 0;
-                    font-size: 13px;
+                    font-size: 14px;
                     color: #92400e;
                     font-weight: 500;
                 "
@@ -851,9 +851,7 @@
             }
 
             loadInitialTemplate().then((template) => {
-                initPlugin(
-                    currentProjectName ? template : addColorModeSupport(template),
-                );
+                initPlugin(addColorModeSupport(template));
             });
         </script>
 
