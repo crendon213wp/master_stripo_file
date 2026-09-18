@@ -21,37 +21,25 @@ Install these first:
 
 ## 1. Download the project
 
-Replace `<YOUR_GITHUB_REPOSITORY_URL>` with the HTTPS URL of your GitHub repository.
+Clone the repository from GitHub:
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd <CLONED_REPOSITORY_DIRECTORY>
-```
-
-If the repository contains the parent folder structure, use this instead:
-
-```bash
-cd stripo_framework/Master\ File
+git clone https://github.com/crendon213wp/master_stripo_file.git
+cd master_stripo_file
 ```
 
 On Windows PowerShell:
 
 ```powershell
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-Set-Location "<CLONED_REPOSITORY_DIRECTORY>"
-```
-
-With the parent folder structure:
-
-```powershell
-Set-Location "stripo_framework\Master File"
+git clone https://github.com/crendon213wp/master_stripo_file.git
+Set-Location "master_stripo_file"
 ```
 
 ## 2. Create your private settings file
 
 The repository includes `.env.example`. It is a form. Your job is to make the real file.
 
-From the `Master File` directory, copy it to `.env`.
+From the `master_stripo_file` directory, copy it to `.env`.
 
 ### Windows PowerShell
 
@@ -84,7 +72,7 @@ Do not upload `.env` to GitHub. It contains private credentials. The `.gitignore
 
 ## 3. Install the dependencies
 
-Run this from the `Master File` directory:
+Run this from the `master_stripo_file` directory:
 
 ```bash
 npm install
@@ -122,13 +110,13 @@ The **New Project** button uses this endpoint:
 POST http://localhost:3000/api/projects
 ```
 
-New projects are created here:
+New projects are created in a sibling directory beside the cloned repository:
 
 ```text
-stripo_framework\<project-name>
+<parent-directory>\<project-name>
 ```
 
-They are placed beside `Master File`, not inside it.
+They are not created inside `master_stripo_file`.
 
 ## Troubleshooting
 
@@ -137,7 +125,7 @@ They are placed beside `Master File`, not inside it.
 Check these four things:
 
 1. The file is named `.env`.
-2. The file is inside `Master File`.
+2. The file is inside `master_stripo_file`.
 3. `STRIPO_PLUGIN_ID` has a real Plugin ID.
 4. `STRIPO_SECRET_KEY` has a real Secret Key.
 
@@ -162,8 +150,8 @@ http://localhost:3001
 
 Make sure:
 
-- The server is running from `Master File`.
-- The parent `stripo_framework` folder is writable.
+- The server is running from `master_stripo_file`.
+- The parent directory is writable.
 - You are not trying to create a project with a name that already exists.
 
 ## Keep the keys safe
